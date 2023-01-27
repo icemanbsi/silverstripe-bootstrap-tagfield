@@ -292,11 +292,8 @@ class BootstrapTagField extends CheckboxSetField {
 	 * @return  SSViewer
 	 */
 	public function Field($properties = array()) {
-		// Requirements::javascript('_resources/strap-tagfield/javascript/typeahead.js');
-		// Requirements::javascript('_resources/strap-tagfield/javascript/bootstrap-tagfield.js');
-		// Requirements::javascript('_resources/strap-tagfield/javascript/bootstrap-tagfield-init.js');
-    Requirements::javascript('_resources/strap-tagfield/javascript/bs-tagfield.js');
-		Requirements::css('_resources/strap-tagfield/css/bootstrap-tagfield.css');
+		Requirements::javascript('_resources/vendor/unclecheese/bootstrap-tagfield/javascript/bs-tagfield.js');
+		Requirements::css('_resources/vendor/unclecheese/bootstrap-tagfield/css/bootstrap-tagfield.css');
 
 		$this->setAttribute('data-value', $this->getValuesJSON())
 			 ->setAttribute('data-bootstrap-tags', true)
