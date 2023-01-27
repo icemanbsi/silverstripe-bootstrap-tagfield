@@ -2,7 +2,7 @@
   function addScript(s){
     var js, id = s.replace(/[^0-9a-z]/gi, ''); if (d.getElementById(id)) {return;}
     js = d.createElement('script'); js.id = id; js.async = false;
-    js.src = "_resources/strap-tagfield/javascript/" + s;
+    js.src = "_resources/vendor/unclecheese/bootstrap-tagfield/javascript/" + s;
     d.getElementsByTagName('body')[0].appendChild(js);
   }
   d.addEventListener("DOMContentLoaded", () => {
