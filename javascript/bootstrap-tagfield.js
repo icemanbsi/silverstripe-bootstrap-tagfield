@@ -10,7 +10,7 @@
 
   var defaultOptions = {
     tagClass: function(item) {
-      return 'label label-info';
+      return 'badge text-bg-primary fw-medium';
     },
     itemValue: function(item) {
       return item ? item.toString() : item;
@@ -50,8 +50,8 @@
 
     this.$element.after(this.$container);
 
-    var inputWidth = (this.inputSize < 3 ? 3 : this.inputSize) + "em";
-    this.$input.get(0).style.cssText = "width: " + inputWidth + " !important;";
+    // var inputWidth = (this.inputSize < 3 ? 3 : this.inputSize) + "em";
+    // this.$input.get(0).style.cssText = "width: " + inputWidth + " !important;";
     this.build(options);
   }
 

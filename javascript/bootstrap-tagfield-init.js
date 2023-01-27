@@ -42,6 +42,14 @@
 			for(var v in vals) {				
 				$el.tagsinput('add', vals[v]);
 			}
-		})
+
+      if($el.data('oninit')){
+        try {
+          eval($el.data('oninit'))($el);
+        } catch (error) {
+          
+        }
+      }
+		});
 	})
 })(jQuery);

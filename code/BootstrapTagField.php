@@ -74,6 +74,12 @@ class BootstrapTagField extends CheckboxSetField {
    * @var string
    */
   protected $queryUrl;
+  
+  /**
+   * Js function's name to be executed after initialized the component
+   * @var string
+   */
+  protected $onInitJs;
 
 	/**
 	 * Constructor
@@ -298,6 +304,10 @@ class BootstrapTagField extends CheckboxSetField {
 			 ->setAttribute('data-prefetch-url', $this->getPrefetchUrl())
 			 ->setAttribute('data-freeinput', $this->freeInput)
 			 ->setAttribute('class', 'text');
+
+    if($this->getOnInitJs()){
+      $this->setAttribute('data-oninit', $this->getOnInitJs());
+    }
 		
 		return $this->renderWith(self::class);
 	}
@@ -381,5 +391,14 @@ class BootstrapTagField extends CheckboxSetField {
       return $this->queryUrl;
     }
     return $this->Link('query');
+  }
+
+  public function setOnInitJs($name){
+    $this->onInitJs = $name;
+    return $this;
+  }
+
+  public function getOnInitJs(){
+    return $this->onInitJs;
   }
 }
