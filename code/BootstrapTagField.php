@@ -1,5 +1,19 @@
 <?php
 
+namespace UncleCheese\BootstrapTagField;
+
+use SilverStripe\Forms\CheckboxSetField;
+use SilverStripe\ORM\SS_List;
+// use Exception;
+use SilverStripe\ORM\ArrayList;
+use SilverStripe\Core\Convert;
+use SilverStripe\Control\Controller;
+use SilverStripe\Control\HTTPRequest;
+use SilverStripe\ORM\DataObjectInterface;
+use SilverStripe\ORM\RelationList;
+use SilverStripe\ORM\UnsavedRelationList;
+use SilverStripe\View\Requirements;
+
 /**
  * Creates a field that allows multiple selection, like a CheckboxSetField
  * to store in a many_many, has_many, or native field (comma separated values)
@@ -46,6 +60,21 @@ class BootstrapTagField extends CheckboxSetField {
 	 */
 	protected $freeInput = false;
 
+  /**
+   * @var DataList
+   */
+  protected $sourceList;
+
+  /**
+   * @var string
+   */
+  protected $prefetchUrl;
+
+  /**
+   * @var string
+   */
+  protected $queryUrl;
+
 	/**
 	 * Constructor
 	 * 	
@@ -58,15 +87,16 @@ class BootstrapTagField extends CheckboxSetField {
 	 * @param Form $form
 	 */
 	public function __construct($name, $title=null, $source = null, $labelField = 'Title', $idField = 'ID', $value='', $form=null) {
-		if($source && !$source instanceof SS_List) {
-			throw new Exception("BootstrapTagField::__construct() -- \$source must be an SS_List");
-		}
-		else if(!$source) {
-			$source = ArrayList::create();
-		}
+		// if($source && !$source instanceof SS_List) {
+		// 	throw new Exception("BootstrapTagField::__construct() -- \$source must be an SS_List");
+		// }
+		// else if(!$source) {
+		// 	$source = ArrayList::create();
+		// }
 
 		$this->labelField = $labelField;
 		$this->idField = $idField;
+    $this->setSourceList($source);
 
 		parent::__construct($name, $title, $source, $value, $form);
 	}
@@ -77,12 +107,12 @@ class BootstrapTagField extends CheckboxSetField {
 	 * @param  SS_List $list The list to format
 	 * @return string        JSON
 	 */
-	protected function formatJSON(SS_List $list) {
+	public static function formatJSON(SS_List $list, $idField = 'ID', $labelField = 'Title') {
 		$ret = array ();
 		foreach($list as $item) {
 			$ret[] = array(
-				'id' => $item->{$this->idField},
-				'label' => $item->{$this->labelField}
+				'id' => $item->{$idField},
+				'label' => $item->{$labelField}
 			);
 		}
 
@@ -92,25 +122,26 @@ class BootstrapTagField extends CheckboxSetField {
 	/**
 	 * An AJAX endpoint for querying the typeahead
 	 * 
-	 * @param  SS_HTTPRequest $r The request
+	 * @param  HTTPRequest $r The request
 	 * @return string            JSON
 	 */
-	public function query(SS_HTTPRequest $r) {
-		return $this->formatJSON($this->source->filter(array(
+	public function query(HTTPRequest $r) {
+    $source = $this->getSourceList();
+		return self::formatJSON($source->filter(array(
 			$this->labelField.':PartialMatch' => $r->getVar('q')
 		))
-		->limit(10));
+		->limit(10), $this->idField, $this->labelField);
 	}
 
 	/**
 	 * An AJAX endpoint for getting the prefetch JSON
 	 * 	
-	 * @param  SS_HTTPRequest $r The request
+	 * @param  HTTPRequest $r The request
 	 * @return string 			JSON
 	 */
-	public function prefetch(SS_HTTPRequest $r) {
+	public function prefetch(HTTPRequest $r) {
 		if($this->prefetch) {
-			return $this->formatJSON($this->prefetch);
+			return self::formatJSON($this->prefetch, $this->idField, $this->labelField);
 		}
 	}
 
@@ -120,6 +151,8 @@ class BootstrapTagField extends CheckboxSetField {
 	 * @return string 			JSON
 	 */
 	protected function getValuesJSON() {
+    $source = $this->getSourceList();
+
 		$value = $this->value;
 		if($value instanceof SS_List) {
 			$values = $value->column($this->idField);
@@ -131,10 +164,9 @@ class BootstrapTagField extends CheckboxSetField {
 			$values = explode(',', $value);
 			$values = str_replace('{comma}', ',', $values);
 		}
-
-		return $this->formatJSON($this->source->filter(array(
+		return self::formatJSON($source->filter(array(
 			$this->idField => $values
-		)));
+		)), $this->idField, $this->labelField);
 	}
 
 	/**
@@ -167,11 +199,13 @@ class BootstrapTagField extends CheckboxSetField {
 
 
 	public function setValue($val, $obj = null) {
+    $source = $this->getSourceList();
+
 		$values = array ();
 		if(is_array($val)) {
 			foreach($val as $id => $text) {
 				if(preg_match('/^__new__/', $id)) {
-					$id = $this->source->newObject(array(
+					$id = $source->newObject(array(
 						$this->labelField => $text
 					))->write();
 				}
@@ -218,6 +252,8 @@ class BootstrapTagField extends CheckboxSetField {
 	 * @param DataObject $record The record to save into
 	 */
 	public function saveInto(DataObjectInterface $record) {
+    $source = $this->getSourceList();
+
 		$fieldname = $this->name;
 		$relation = ($fieldname && $record && $record->hasMethod($fieldname)) ? $record->$fieldname() : null;
 		if($fieldname && $record && $relation &&
@@ -225,7 +261,7 @@ class BootstrapTagField extends CheckboxSetField {
 			$idList = array();
 			if($this->value) foreach($this->value as $id => $text) {				
 				if(preg_match('/^__new__/', $id)) {
-					$id = $this->source->newObject(array(
+					$id = $source->newObject(array(
 						$this->labelField => $text
 					))->write();
 				}
@@ -250,20 +286,100 @@ class BootstrapTagField extends CheckboxSetField {
 	 * @return  SSViewer
 	 */
 	public function Field($properties = array()) {
-		Requirements::javascript(BOOTSTRAP_TAGFIELD_DIR.'/javascript/typeahead.js');
-		Requirements::javascript(BOOTSTRAP_TAGFIELD_DIR.'/javascript/bootstrap-tagfield.js');
-		Requirements::javascript(BOOTSTRAP_TAGFIELD_DIR.'/javascript/bootstrap-tagfield-init.js');
-		Requirements::css(BOOTSTRAP_TAGFIELD_DIR.'/css/bootstrap-tagfield.css');
+		// Requirements::javascript('_resources/strap-tagfield/javascript/typeahead.js');
+		// Requirements::javascript('_resources/strap-tagfield/javascript/bootstrap-tagfield.js');
+		// Requirements::javascript('_resources/strap-tagfield/javascript/bootstrap-tagfield-init.js');
+    Requirements::javascript('_resources/strap-tagfield/javascript/bs-tagfield.js');
+		Requirements::css('_resources/strap-tagfield/css/bootstrap-tagfield.css');
 
 		$this->setAttribute('data-value', $this->getValuesJSON())
 			 ->setAttribute('data-bootstrap-tags', true)
-			 ->setAttribute('data-query-url', $this->Link('query'))
-			 ->setAttribute('data-prefetch-url', $this->Link('prefetch'))
+			 ->setAttribute('data-query-url', $this->getQueryUrl())
+			 ->setAttribute('data-prefetch-url', $this->getPrefetchUrl())
 			 ->setAttribute('data-freeinput', $this->freeInput)
 			 ->setAttribute('class', 'text');
 		
-		return $this->renderWith(
-			$this->getTemplates()
-		);
+		return $this->renderWith(self::class);
 	}
+
+  /**
+   * Gets the source array if required
+   *
+   * Note: this is expensive for a SS_List
+   *
+   * @return array
+   */
+  public function getSource()
+  {
+      if (is_null($this->source)) {
+          $this->source = $this->getListMap($this->getSourceList());
+      }
+      return $this->source;
+  }
+
+
+  /**
+   * Intercept DataList source
+   *
+   * @param mixed $source
+   * @return $this
+   */
+  public function setSource($source)
+  {
+      // When setting a datalist force internal list to null
+      if ($source instanceof DataList) {
+          $this->source = null;
+          $this->setSourceList($source);
+      } else {
+          parent::setSource($source);
+      }
+      return $this;
+  }
+
+  /**
+   * Get the DataList source. The 4.x upgrade for SelectField::setSource starts to convert this to an array.
+   * If empty use getSource() for array version
+   *
+   * @return DataList
+   */
+  public function getSourceList()
+  {
+      return $this->sourceList;
+  }
+
+  /**
+   * Set the model class name for tags
+   *
+   * @param DataList $sourceList
+   * @return self
+   */
+  public function setSourceList($sourceList)
+  {
+      $this->sourceList = $sourceList;
+      return $this;
+  }
+
+  public function setPrefetchUrl($url){
+    $this->prefetchUrl = $url;
+    return $this;
+  }
+
+  public function getPrefetchUrl(){
+    if($this->prefetchUrl){
+      return $this->prefetchUrl;
+    }
+    return $this->Link('prefetch');
+  }
+
+  public function setQueryUrl($url){
+    $this->queryUrl = $url;
+    return $this;
+  }
+
+  public function getQueryUrl(){
+    if($this->queryUrl){
+      return $this->queryUrl;
+    }
+    return $this->Link('query');
+  }
 }
