@@ -12,7 +12,6 @@
     ],
     "require":
     {
-      "silverstripe/vendor-plugin": "^1",
       "silverstripe/framework": "^4.1",
       "silverstripe/cms": "^4.1"
     },
